@@ -1,20 +1,266 @@
-# Reproducible Research: Peer Assessment 1
+Reproducible Research: Peer Assessment 1
+=========================================== 
+    
+## Getting the data
+
+The following script checks whether the data zip file exists in your working directory and downloads it if it's not there.
+
+```{r echo=TRUE, results="hide"}
+if (!file.exists("./activity.zip")) {
+      fileUrl <- "https://d396qusza40orc.cloudfront.net/repdata%2Fdata%2Factivity.zip"
+      download.file(fileUrl, destfile = "./activity.zip")
+}
+```
+
+
+The following script unzips the data into a seperate data directory.
+
+
+```{r echo=TRUE, results="hide"}
+unzip("activity.zip", exdir="data", overwrite=TRUE)
+```
 
 
 ## Loading and preprocessing the data
+
+
+**Loading the raw data into a table for inspection and preprocessing.**
+
+
+```{r echo=TRUE, results="hide", cache=TRUE}
+rawData <- read.csv("data/activity.csv")
+```
+
+
+**Preprocessing data**
+
+Converting date data from factor class to Date class variables
+
+```{r echo=TRUE, results="hide", cache=TRUE}
+rawData$date <- as.Date(as.character(rawData$date), format="%Y-%m-%d")
+```
 
 
 
 ## What is mean total number of steps taken per day?
 
 
+**Calculating and plotting the total number of steps taken per day.**
+
+
+*Creating an object with the number of steps taken in total per day for further analysis.*
+
+
+```{r echo=TRUE, results="hide", cache=TRUE}
+## Ignoring the NA values during the calculation
+dailyStepTotals <- aggregate(rawData$steps, by = list(rawData$date), FUN = sum)
+names(dailyStepTotals) <- c("date", "totals")
+```
+
+
+*Plotting the results*
+
+
+Given that the NA values are being ignored during the computation, plotting the results might result in a warning message with the number of rows removed that contain missing values.  This has been deliberately left as is to illustrate the importance of working with clean data.
+
+
+```{r echo=TRUE, fig.width=7, fig.height=3}
+library(ggplot2)
+qplot(dailyStepTotals$date, dailyStepTotals$totals, dailyStepTotals, , geom="bar", stat="identity",
+      xlab="Date", ylab="Total Steps Taken", main="Total number of steps taken per day")
+```
+
+
+#### Calculating and reporting the **mean** and **median** total number of steps taken per day
+
+
+```{r echo=TRUE}
+meanT <- mean(dailyStepTotals$totals, na.rm=TRUE)
+meanT
+medianT <- median(dailyStepTotals$totals, na.rm=TRUE)
+medianT
+```
+
+
+The mean number of steps taken per day for the calculated over the entire period is **`r meanT`** while the median per day is **`r medianT`**.
+
 
 ## What is the average daily activity pattern?
 
 
+**Time interval plot of the average number of steps per interval across all days**
 
-## Imputing missing values
+
+```{r echo=TRUE, cache=TRUE}
+intervalStepAvg <- aggregate(rawData$steps, by = list(rawData$interval), FUN = mean, na.rm=TRUE)
+names(intervalStepAvg) <- c("interval", "average")
+```
+
+
+*Plotting the results*
+
+
+```{r echo=TRUE, fig.width=7, fig.height=3}
+library(ggplot2)
+qplot(intervalStepAvg$interval, intervalStepAvg$average, intervalStepAvg, geom="line",
+      xlab="Interval", ylab="Average Steps Taken", main="Steps taken per interval averaged across days")
+```
+
+
+**Which interval on average has the most steps been taken across all days?**
+
+
+```{r echo=TRUE, cache=TRUE}
+index <- which.max(intervalStepAvg$average) ## returns the index of the maximum value
+interval <- intervalStepAvg[index,1]
+max <- intervalStepAvg$average[index]
+```
+
+
+The interval with the most average steps taken across all days is **`r interval`** which is **`r max`**.
+
+## Inputing missing values
+
+#### 1. Calculating the number of missing values
+
+
+```{r echo=TRUE, cache=TRUE}
+logicV <- !complete.cases(rawData$steps)
+countNA <- nrow(rawData[logicV,])
+```
+
+
+There are **`r countNA`** rows that contain missing values (NA).
+
+
+#### 2. Devise a strategy for inputting the missing values
+
+
+The strategy for inputting the missing values is to clone the raw dataset, and then to cycle through each row of the data, test whether the value is NA and replace the NA value with 0.  See code snipped below.
+
+
+#### 3. Creating a clean data set with NA values filled in.
+
+
+```{r echo=TRUE, cache=TRUE}
+cleanData <- rawData
+cleanData[is.na(cleanData)] <- 0
+```
+
+
+The shortened output below shows that filling in the missing values has been successfull (top 6 rows of the dataset).
+
+
+```{r echo=TRUE, cache=TRUE}
+head(cleanData)
+```
+
+Compare this to the original raw data set.
+
+```{r echo=TRUE, cache=TRUE}
+head(rawData)
+```
+
+#### 4. Comparing the raw data set with the cleaned data set
+
+
+*Calculating and plotting the total number of steps taken per day.*
+
+
+Creating an object with the number of steps taken in total per day for the cleaned data set.
+
+
+```{r echo=TRUE, results="hide", cache=TRUE}
+dailyStepTotals2 <- aggregate(cleanData$steps, by = list(cleanData$date), FUN = sum)
+names(dailyStepTotals2) <- c("date", "totals")
+```
+
+
+*Plotting the results*
+
+
+```{r echo=TRUE, fig.width=7, fig.height=3}
+library(ggplot2)
+qplot(dailyStepTotals2$date, dailyStepTotals2$totals, dailyStepTotals2, geom="bar", stat="identity",
+      xlab="Date", ylab="Total Steps Taken", main="Total number of steps taken per day")
+```
+
+
+Calculating and reporting the **mean** and **median** total number of steps taken per day on the cleaned data set.
+
+
+```{r echo=TRUE}
+meanT2 <- mean(dailyStepTotals2$totals, na.rm=TRUE)
+meanT2
+medianT2 <- median(dailyStepTotals2$totals, na.rm=TRUE)
+medianT2
+```
+
+
+The mean number of steps taken per day for the calculated over the entire period is for the cleaned data set is **`r meanT2`**.  The median for the clean data set is **`r medianT2`**.
+
+**Comparing raw vs clean data set impact on output values**
+
+```{r echo=TRUE, results="hide"} 
+raw <- c(meanT, medianT)
+clean <- c(meanT2, medianT2)
+mnames <- c("Mean", "Median")
+mtable <- rbind(raw, clean)
+colnames(mtable) <- mnames
+
+```
+
+While filling in the missing values with 0 has no impact on the total number of steps per day (as can be seen if you compare the two histogram plots - which look the same), it does have an impact on calculations of population expected values such as mean and median.
+
+As you can see in the table below, the missing values are scewing the results upwards.  The median and the mean are both higher when calculated on the raw dataset, than on the clean dataset.
+
+
+```{r echo=TRUE}
+mtable
+```
 
 
 
 ## Are there differences in activity patterns between weekdays and weekends?
+
+**Adding a day type "Weekend" or "Weekend" factor variable to the clean data set**
+
+```{r echo=TRUE, cache=TRUE}
+cleanData <- cbind(cleanData, weekdays(cleanData$date), stringsAsFactors=FALSE)
+cleanData <- cbind(cleanData, "Factors", stringsAsFactors=FALSE)
+names(cleanData) <- c("steps", "date", "interval", "daynames", "whatDayType")
+cleanData$whatDayType[cleanData$daynames %in% c("Saturday", "Sunday")] <- "Weekend"
+cleanData$whatDayType[!cleanData$whatDayType %in% c("Weekend")] <- "Weekday"
+cleanData$whatDayType <- factor(cleanData$whatDayType)
+```
+
+The weekdays have been flagged "weekday", as per the short output below:
+
+```{r echo=TRUE, cache=TRUE}
+head(cleanData)
+```
+
+The weekends have been flagged as "weekend", as per the short output below:
+
+```{r echo=TRUE, cache=TRUE}
+cleanData[13996:14000,]
+```
+
+**Time interval plot of the average number of steps per interval across week and weekend days**
+
+
+```{r echo=TRUE, cache=TRUE}
+intervalWeekAvg <- aggregate(cleanData$steps, by = list(dayType=cleanData$whatDayType, interval=cleanData$interval), FUN = mean, na.rm=TRUE)
+names(intervalWeekAvg) <- c("dayType", "interval", "average")
+```
+
+
+*Plotting the results*
+
+
+```{r echo=TRUE, fig.width=10, fig.height=5}
+library(ggplot2)
+qplot(intervalWeekAvg$interval, intervalWeekAvg$average, intervalWeekAvg,geom="line", facets = dayType~.,
+      xlab="Interval", ylab="Average Steps Taken", main="Steps taken per interval averaged across week day type")
+```
+
